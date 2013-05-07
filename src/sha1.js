@@ -7,35 +7,8 @@
  * See http://pajhome.org.uk/crypt/md5 for details.
  */
 
-/*
- * Configurable variables. You may need to tweak these to be compatible with
- * the server-side, but the defaults work in most cases.
- */
-var hexcase = 0;  /* hex output format. 0 - lowercase; 1 - uppercase        */
-var b64pad  = ""; /* base-64 pad character. "=" for strict RFC compliance   */
-
-/*
- * These are the functions you'll usually want to call
- * They take string arguments and return either hex or base-64 encoded strings
- */
-function hex_sha1(s)    { return rstr2hex(rstr_sha1(str2rstr_utf8(s))); }
-function b64_sha1(s)    { return rstr2b64(rstr_sha1(str2rstr_utf8(s))); }
-function any_sha1(s, e) { return rstr2any(rstr_sha1(str2rstr_utf8(s)), e); }
-function hex_hmac_sha1(k, d)
-  { return rstr2hex(rstr_hmac_sha1(str2rstr_utf8(k), str2rstr_utf8(d))); }
-function b64_hmac_sha1(k, d)
-  { return rstr2b64(rstr_hmac_sha1(str2rstr_utf8(k), str2rstr_utf8(d))); }
-function any_hmac_sha1(k, d, e)
-  { return rstr2any(rstr_hmac_sha1(str2rstr_utf8(k), str2rstr_utf8(d)), e); }
-
-/*
- * Perform a simple self-test to see if the VM is working
- */
-function sha1_vm_test()
-{
-  return hex_sha1("abc").toLowerCase() == "a9993e364706816aba3e25717850c26c9cd0d89d";
-}
-
+var hex_sha1 = function () {
+var fromCharCode = String.fromCharCode;
 /*
  * Calculate the SHA1 of a raw string
  */
@@ -45,114 +18,18 @@ function rstr_sha1(s)
 }
 
 /*
- * Calculate the HMAC-SHA1 of a key and some data (raw strings)
- */
-function rstr_hmac_sha1(key, data)
-{
-  var bkey = rstr2binb(key);
-  if(bkey.length > 16) bkey = binb_sha1(bkey, key.length * 8);
-
-  var ipad = Array(16), opad = Array(16);
-  for(var i = 0; i < 16; i++)
-  {
-    ipad[i] = bkey[i] ^ 0x36363636;
-    opad[i] = bkey[i] ^ 0x5C5C5C5C;
-  }
-
-  var hash = binb_sha1(ipad.concat(rstr2binb(data)), 512 + data.length * 8);
-  return binb2rstr(binb_sha1(opad.concat(hash), 512 + 160));
-}
-
-/*
  * Convert a raw string to a hex string
  */
 function rstr2hex(input)
 {
-  try { hexcase } catch(e) { hexcase=0; }
-  var hex_tab = hexcase ? "0123456789ABCDEF" : "0123456789abcdef";
   var output = "";
   var x;
-  for(var i = 0; i < input.length; i++)
+  for(var i in input)
   {
     x = input.charCodeAt(i);
-    output += hex_tab.charAt((x >>> 4) & 0x0F)
-           +  hex_tab.charAt( x        & 0x0F);
+    output += ((x >> 4) & 0x0F).toString(16)
+           +  ( x        & 0x0F).toString(16);
   }
-  return output;
-}
-
-/*
- * Convert a raw string to a base-64 string
- */
-function rstr2b64(input)
-{
-  try { b64pad } catch(e) { b64pad=''; }
-  var tab = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-  var output = "";
-  var len = input.length;
-  for(var i = 0; i < len; i += 3)
-  {
-    var triplet = (input.charCodeAt(i) << 16)
-                | (i + 1 < len ? input.charCodeAt(i+1) << 8 : 0)
-                | (i + 2 < len ? input.charCodeAt(i+2)      : 0);
-    for(var j = 0; j < 4; j++)
-    {
-      if(i * 8 + j * 6 > input.length * 8) output += b64pad;
-      else output += tab.charAt((triplet >>> 6*(3-j)) & 0x3F);
-    }
-  }
-  return output;
-}
-
-/*
- * Convert a raw string to an arbitrary string encoding
- */
-function rstr2any(input, encoding)
-{
-  var divisor = encoding.length;
-  var remainders = Array();
-  var i, q, x, quotient;
-
-  /* Convert to an array of 16-bit big-endian values, forming the dividend */
-  var dividend = Array(Math.ceil(input.length / 2));
-  for(i = 0; i < dividend.length; i++)
-  {
-    dividend[i] = (input.charCodeAt(i * 2) << 8) | input.charCodeAt(i * 2 + 1);
-  }
-
-  /*
-   * Repeatedly perform a long division. The binary array forms the dividend,
-   * the length of the encoding is the divisor. Once computed, the quotient
-   * forms the dividend for the next step. We stop when the dividend is zero.
-   * All remainders are stored for later use.
-   */
-  while(dividend.length > 0)
-  {
-    quotient = Array();
-    x = 0;
-    for(i = 0; i < dividend.length; i++)
-    {
-      x = (x << 16) + dividend[i];
-      q = Math.floor(x / divisor);
-      x -= q * divisor;
-      if(quotient.length > 0 || q > 0)
-        quotient[quotient.length] = q;
-    }
-    remainders[remainders.length] = x;
-    dividend = quotient;
-  }
-
-  /* Convert the remainders to the output string */
-  var output = "";
-  for(i = remainders.length - 1; i >= 0; i--)
-    output += encoding.charAt(remainders[i]);
-
-  /* Append leading zero equivalents */
-  var full_length = Math.ceil(input.length * 8 /
-                                    (Math.log(encoding.length) / Math.log(2)))
-  for(i = output.length; i < full_length; i++)
-    output = encoding[0] + output;
-
   return output;
 }
 
@@ -179,41 +56,20 @@ function str2rstr_utf8(input)
 
     /* Encode output as utf-8 */
     if(x <= 0x7F)
-      output += String.fromCharCode(x);
+      output += fromCharCode(x);
     else if(x <= 0x7FF)
-      output += String.fromCharCode(0xC0 | ((x >>> 6 ) & 0x1F),
+      output += fromCharCode(0xC0 | ((x >> 6 ) & 0x1F),
                                     0x80 | ( x         & 0x3F));
     else if(x <= 0xFFFF)
-      output += String.fromCharCode(0xE0 | ((x >>> 12) & 0x0F),
-                                    0x80 | ((x >>> 6 ) & 0x3F),
+      output += fromCharCode(0xE0 | ((x >> 12) & 0x0F),
+                                    0x80 | ((x >> 6 ) & 0x3F),
                                     0x80 | ( x         & 0x3F));
     else if(x <= 0x1FFFFF)
-      output += String.fromCharCode(0xF0 | ((x >>> 18) & 0x07),
-                                    0x80 | ((x >>> 12) & 0x3F),
-                                    0x80 | ((x >>> 6 ) & 0x3F),
+      output += fromCharCode(0xF0 | ((x >> 18) & 0x07),
+                                    0x80 | ((x >> 12) & 0x3F),
+                                    0x80 | ((x >> 6 ) & 0x3F),
                                     0x80 | ( x         & 0x3F));
   }
-  return output;
-}
-
-/*
- * Encode a string as utf-16
- */
-function str2rstr_utf16le(input)
-{
-  var output = "";
-  for(var i = 0; i < input.length; i++)
-    output += String.fromCharCode( input.charCodeAt(i)        & 0xFF,
-                                  (input.charCodeAt(i) >>> 8) & 0xFF);
-  return output;
-}
-
-function str2rstr_utf16be(input)
-{
-  var output = "";
-  for(var i = 0; i < input.length; i++)
-    output += String.fromCharCode((input.charCodeAt(i) >>> 8) & 0xFF,
-                                   input.charCodeAt(i)        & 0xFF);
   return output;
 }
 
@@ -223,9 +79,7 @@ function str2rstr_utf16be(input)
  */
 function rstr2binb(input)
 {
-  var output = Array(input.length >> 2);
-  for(var i = 0; i < output.length; i++)
-    output[i] = 0;
+  var output = [];
   for(var i = 0; i < input.length * 8; i += 8)
     output[i>>5] |= (input.charCodeAt(i / 8) & 0xFF) << (24 - i % 32);
   return output;
@@ -238,7 +92,7 @@ function binb2rstr(input)
 {
   var output = "";
   for(var i = 0; i < input.length * 32; i += 8)
-    output += String.fromCharCode((input[i>>5] >>> (24 - i % 32)) & 0xFF);
+    output += fromCharCode((input[i>>5] >> (24 - i % 32)) & 0xFF);
   return output;
 }
 
@@ -251,7 +105,7 @@ function binb_sha1(x, len)
   x[len >> 5] |= 0x80 << (24 - len % 32);
   x[((len + 64 >> 9) << 4) + 15] = len;
 
-  var w = Array(80);
+  var w = [];
   var a =  1732584193;
   var b = -271733879;
   var c = -1732584194;
@@ -285,7 +139,7 @@ function binb_sha1(x, len)
     d = safe_add(d, oldd);
     e = safe_add(e, olde);
   }
-  return Array(a, b, c, d, e);
+  return [a, b, c, d, e];
 
 }
 
@@ -328,3 +182,6 @@ function bit_rol(num, cnt)
 {
   return (num << cnt) | (num >>> (32 - cnt));
 }
+
+return function (s)    { return rstr2hex(rstr_sha1(str2rstr_utf8(s))); }
+}();
